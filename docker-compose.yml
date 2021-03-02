@@ -1,0 +1,167 @@
+version: '3.5'
+services:
+  ta-db:
+    image: postgres
+    expose:
+      - "5432"
+    networks:
+      - asclepios
+    volumes:
+      - ./data/ta-db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${TA_DB_USER}
+      POSTGRES_PASSWORD: ${TA_DB_PASSWORD}
+      POSTGRES_DB: ${TA_DB_NAME}
+      PGDATA: /var/lib/postgresql/data
+
+  ta:
+          #image: ta-teep_ta
+    build: ../Asclepios-TrustedAuthority
+    container_name: ta
+    ports:
+      - "8000:8000"
+    expose:
+      - "8000"
+    networks:
+      - asclepios
+    depends_on:
+      - ta-db
+      - teep-server
+    volumes:
+      - ../Asclepios-TrustedAuthority:/TA
+    environment:
+      DJANGO_LOGLEVEL: ${TA_DJANGO_LOGLEVEL}
+      DB_NAME: ${TA_DB_NAME}
+      DB_USER: ${TA_DB_USER}
+      DB_PASSWORD: ${TA_DB_PASSWORD}
+      DB_HOST: ${TA_DB_HOST}
+      DB_PORT: ${TA_DB_PORT}
+      ALLOWED_HOSTS: ${TA_ALLOWED_HOSTS}
+      HASH_LENGTH: ${TA_HASH_LENGTH}
+      SALT: ${TA_SALT}
+      IV: ${TA_IV}
+      ITER: ${TA_ITER}
+      MODE: ${TA_MODE}
+      KS: ${TA_KS}
+      DJANGO_DEBUG: ${TA_DJANGO_DEBUG}
+      TEEP_SERVER: ${TA_TEEP_SERVER}
+      SGX: ${TA_SGX}
+
+  teep-server:
+          #image: ta-teep_teep-server
+    build: ../teep-deployer
+    container_name: teep-server
+    ports:
+      - "5683:5683"
+    expose:
+      - "5683"
+    networks:
+      - asclepios
+    volumes:
+      - ../teep-deployer:/home/teep/teep-deployer   
+    devices:
+      - /dev/sgx
+
+  sse-db:
+    image: postgres
+    expose:
+      - "5432"
+    networks:
+      - asclepios
+    volumes:
+      - ./data/sse-db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${SSE_SERVER_DB_USER}
+      POSTGRES_PASSWORD: ${SSE_SERVER_DB_PASSWORD}
+      POSTGRES_DB: ${SSE_SERVER_DB_NAME}
+      PGDATA: /var/lib/postgresql/data
+
+  sse:
+    image: uowcpc/asclepios-server:0.3
+    container_name: sse
+    ports:
+      - "8080:8080"
+    expose:
+      - "8080"
+    networks:
+      - asclepios
+    depends_on:
+      - sse-db
+      - ta
+      - minio
+    environment:
+      DJANGO_LOGLEVEL: ${SSE_SERVER_DJANGO_LOGLEVEL}
+      TA_SERVER: ${SSE_SERVER_TA_SERVER}
+      DB_NAME: ${SSE_SERVER_DB_NAME}
+      DB_USER: ${SSE_SERVER_DB_USER}
+      DB_PASSWORD: ${SSE_SERVER_DB_PASSWORD}
+      DB_HOST: ${SSE_SERVER_DB_HOST}
+      DB_PORT: ${SSE_SERVER_DB_PORT}
+      ALLOWED_HOSTS: ${SSE_SERVER_ALLOWED_HOSTS}
+      DJANGO_DEBUG: ${SSE_SERVER_DJANGO_DEBUG}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
+      MINIO_URL: ${MINIO_URL}
+      MINIO_SSL_SECURE: ${MINIO_SSL_SECURE}
+      MINIO_EXPIRE_GET: ${MINIO_EXPIRE_GET}
+      MINIO_EXPIRE_PUT: ${MINIO_EXPIRE_PUT}
+
+  sse-client:
+          #image: uowcpc/asclepios-client:0.2
+      build: ../Asclepios-Client
+      container_name: client
+      ports:
+        - "80:80"
+      expose:
+        - "80"
+      networks:
+        - asclepios
+      depends_on:
+        - sse
+        - ta
+      environment:
+        ALLOWED_HOSTS: ${SSE_CLIENT_ALLOWED_HOSTS}
+        DJANGO_DEBUG: ${SSE_CLIENT_DJANGO_DEBUG}
+        TA_URL: ${SSE_CLIENT_TA_URL}
+        SSE_URL: ${SSE_CLIENT_SSE_URL}
+        SALT: ${SSE_CLIENT_SALT}
+        IV: ${SSE_CLIENT_IV}
+        ITER: ${SSE_CLIENT_ITER}
+        KS: ${SSE_CLIENT_KS}
+        TS: ${SSE_CLIENT_TS}
+        MODE: ${SSE_CLIENT_MODE}
+        ADATA: ${SSE_CLIENT_ADATA}
+        ADATA_LEN: ${SSE_CLIENT_ADATA_LEN}
+        HASH_LEN: ${SSE_CLIENT_HASH_LEN}
+        CHUNK_SIZE: ${SSE_CLIENT_CHUNK_SIZE}
+        NO_CHUNKS_PER_UPLOAD: ${SSE_CLIENT_NO_CHUNKS_PER_UPLOAD}
+        SALT_TA: ${SSE_CLIENT_SALT_TA}
+        IV_TA: ${SSE_CLIENT_IV_TA}
+        ITER_TA: ${SSE_CLIENT_ITER_TA}
+        KS_TA: ${SSE_CLIENT_KS_TA}
+        TS_TA: ${SSE_CLIENT_TS_TA}
+        MODE_TA: ${SSE_CLIENT_MODE_TA}
+        ADATA_TA: ${SSE_CLIENT_ADATA_TA}
+        DATA_LEN_TA: ${SSE_CLIENT_ADATA_LEN_TA}
+        SGX_ENABLE: ${SSE_CLIENT_SGX_ENABLE}
+  
+  minio:
+    image: minio/minio
+    volumes:
+      - ./data/minio:/data
+    expose:
+      - "9000"
+    ports:
+      - "9000:9000"
+    networks:
+      - asclepios
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+    command: server /data
+
+networks:
+    asclepios:
+      driver: bridge
+      name: asclepios

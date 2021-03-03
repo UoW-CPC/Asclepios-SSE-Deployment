@@ -1,0 +1,189 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+imports:
+  - https://raw.githubusercontent.com/micado-scale/tosca/develop/micado_types.yaml
+repositories:
+  docker_hub: https://hub.docker.com/
+description: ADT for Symmetric Searchable Encryption scheme on EC2
+topology_template:
+  node_templates:
+    minio:
+      type: tosca.nodes.MiCADO.Container.Application.Docker.Deployment
+      properties:
+        image: minio/minio
+        ports:
+        - target: 9000
+          nodePort: 30900
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: MINIO_ACCESS_KEY_HERE
+        - name: MINIO_SECRET_KEY
+          value: MINIO_SECRET_KEY_HERE
+        command: ["minio","gateway","s3"]
+      requirements:
+        - host: worker-node
+        - volume:
+                node: nfs-volume
+                relationship:
+                        type: tosca.relationships.AttachesTo
+                        properties:
+                                location: /data
+    sse-client:
+      type: tosca.nodes.MiCADO.Container.Application.Docker.Deployment
+      properties:
+        image: uowcpc/asclepios-client:dev 
+        ports:
+        - target: 80
+          nodePort: 30801
+        env:
+        - name: ALLOWED_HOSTS 
+          value: "*"
+        - name: DJANGO_DEBUG 
+          value: "true"
+        - name: SALT
+          value: SALT_VALUE_HERE
+        - name: IV
+          value: IV_VALUE_HERE
+        - name: TA_URL
+          value: "http://SSE_TA_IP_HERE:30800"
+        - name: SSE_URL
+          value: "http://SSE_SERVER_IP_HERE:30808"
+    sse:
+      type: tosca.nodes.MiCADO.Container.Application.Docker.Deployment
+      properties:
+        image: uowcpc/asclepios-server:dev
+        name: sse
+        ports:
+        - target: 8080
+          nodePort: 30808
+        env:
+        - name: DJANGO_LOGLEVEL
+          value: DEBUG
+        - name: TA_SERVER
+          value: "http://ta:8000"
+        - name: DB_NAME
+          value: sse-db
+        - name: DB_USER
+          value: SSE_SERVER_DATABASE_USER_NAME_HERE
+        - name: DB_PASSWORD
+          value: SSE_SERVER_DATABASE_USER_PASSWORD_HERE
+        - name: DB_HOST
+          value: sse-db
+        - name: DB_PORT
+          value: "5432"
+        - name: ALLOWED_HOSTS
+          value: "*"
+        - name: DJANGO_DEBUG
+          value: "true"
+        - name: MINIO_ACCESS_KEY
+          value: MINIO_ACCESS_KEY_HERE
+        - name: MINIO_SECRET_KEY
+          value: MINIO_SECRET_KEY_HERE
+        - name: MINIO_BUCKET_NAME
+          value: MINIO_BUCKET_NAME_HERE
+        - name: MINIO_URL
+          value: "MINIO_IP_ADDRESS_HERE:30900"
+        - name: MINIO_SSL_SECURE
+          value: "false"
+        - name: MINIO_EXPIRE_GET
+          value: "1"
+        - name: MINIO_EXPIRE_PUT
+          value: "1"
+    ta:
+      type: tosca.nodes.MiCADO.Container.Application.Docker.Deployment
+      properties:
+        image: uowcpc/asclepios-ta:dev
+        name: ta
+        ports:
+        - target: 8000
+          nodePort: 30800
+        env:
+        - name: DJANGO_LOGLEVEL
+          value: DEBUG
+        - name: DB_NAME
+          value: ta-db
+        - name: DB_USER
+          value: SSE_TA_DATABASE_USER_NAME_HERE
+        - name: DB_PASSWORD
+          value: SSE_TA_DATABASE_PASSWORD_HERE
+        - name: DB_HOST
+          value: ta-db 
+        - name: DB_PORT
+          value: "5432"
+        - name: ALLOWED_HOSTS
+          value: "*"
+        - name: HASH_LENGTH
+          value: "256"
+        - name: KEY_G
+          value: VERIFICATION_KEY_HERE
+        - name: SALT
+          value: SALT_VALUE_HERE
+        - name: IV
+          value: IV_VALUE_HERE
+        - name: DJANGO_DEBUG
+          value: "true"
+    sse-db:
+      type: tosca.nodes.MiCADO.Container.Application.Docker.Deployment
+      properties:
+        image: postgres
+        ports:
+        - target: 5432
+        env:
+        - name: POSTGRES_USER 
+          value: SSE_SERVER_DATABASE_USER_NAME_HERE
+        - name: POSTGRES_PASSWORD 
+          value: SSE_SERVER_DATABASE_USER_PASSWORD_HERE
+        - name: POSTGRES_DB
+          value: sse-db
+        - name: PGDATA
+          value: /var/lib/postgresql/data
+    ta-db:
+      type: tosca.nodes.MiCADO.Container.Application.Docker.Deployment
+      properties:
+        image: postgres
+        ports:
+        - target: 5432
+        env:
+        - name: POSTGRES_USER 
+          value: SSE_TA_DATABASE_USER_NAME_HERE
+        - name: POSTGRES_PASSWORD 
+          value: SSE_TA_DATABASE_PASSWORD_HERE
+        - name: POSTGRES_DB
+          value: ta-db
+        - name: PGDATA
+          value: /var/lib/postgresql/data
+    worker-node:
+      type: tosca.nodes.MiCADO.EC2.Compute
+      properties:
+        region_name: REGION_NAME_HERE
+        image_id: IMAGE_ID_HERE
+        instance_type: INSTANCE_TYPE_HERE
+        security_group_ids:
+          - SECURITY_GROUP_ID_HERE
+        key_name: SSH_KEY_NAME_HERE
+        context:
+          insert: true
+          cloud_config: |
+            runcmd:
+            - apt-get install -y nfs-common
+      interfaces:
+        Occopus:
+          create:
+            inputs:
+              endpoint: CLOUD_ENDPOINT_HERE
+    nfs-volume:
+      type: tosca.nodes.MiCADO.Container.Volume.NFS
+      properties:
+        server: IP_ADDRESS_OF_NSF_SERVER_EXAMPLE_172.31.14.160
+        path: /home/ubuntu/nfs
+  policies:
+    - monitoring:
+        type: tosca.policies.Monitoring.MiCADO
+        properties:
+          enable_container_metrics: false
+          enable_node_metrics: false
+    - secret:
+        type: tosca.policies.Security.MiCADO.Secret.KubernetesSecretDistribution
+        properties:
+          text_secrets:
+            salt_value: "SALT_VALUE_HERE"
+            hash_length: "256"

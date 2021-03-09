@@ -15,8 +15,7 @@ services:
       PGDATA: /var/lib/postgresql/data
 
   ta:
-    image: uowcpc/asclepios-ta:dev_sgx
-          #build: ../Asclepios-TrustedAuthority
+    image: uowcpc/asclepios-ta:0.4
     container_name: ta
     ports:
       - "8000:8000"
@@ -27,8 +26,6 @@ services:
     depends_on:
       - ta-db
       - teep-server
-    volumes:
-      - ../Asclepios-TrustedAuthority:/TA
     environment:
       DJANGO_LOGLEVEL: ${TA_DJANGO_LOGLEVEL}
       DJANGO_DEBUG: ${TA_DJANGO_DEBUG}
@@ -48,7 +45,6 @@ services:
 
   teep-server:
     image: registry.gitlab.com/asclepios-project/teep-deployer
-          #build: ../teep-deployer
     container_name: teep-server
     ports:
       - "5683:5683"
@@ -56,8 +52,6 @@ services:
       - "5683"
     networks:
       - asclepios
-    volumes:
-      - ../teep-deployer:/home/teep/teep-deployer   
     devices:
       - /dev/sgx
 
@@ -76,7 +70,7 @@ services:
       PGDATA: /var/lib/postgresql/data
 
   sse:
-    image: uowcpc/asclepios-server:0.3
+    image: uowcpc/asclepios-server:0.4
     container_name: sse
     ports:
       - "8080:8080"
@@ -90,14 +84,15 @@ services:
       - minio
     environment:
       DJANGO_LOGLEVEL: ${SSE_SERVER_DJANGO_LOGLEVEL}
+      ALLOWED_HOSTS: ${SSE_SERVER_ALLOWED_HOSTS}
+      DJANGO_DEBUG: ${SSE_SERVER_DJANGO_DEBUG}
+      DJANGO_SECRET_KEY: ${SSE_SERVER_DJANGO_SECRET_KEY}
       TA_SERVER: ${SSE_SERVER_TA_SERVER}
       DB_NAME: ${SSE_SERVER_DB_NAME}
       DB_USER: ${SSE_SERVER_DB_USER}
       DB_PASSWORD: ${SSE_SERVER_DB_PASSWORD}
       DB_HOST: ${SSE_SERVER_DB_HOST}
       DB_PORT: ${SSE_SERVER_DB_PORT}
-      ALLOWED_HOSTS: ${SSE_SERVER_ALLOWED_HOSTS}
-      DJANGO_DEBUG: ${SSE_SERVER_DJANGO_DEBUG}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
@@ -107,8 +102,7 @@ services:
       MINIO_EXPIRE_PUT: ${MINIO_EXPIRE_PUT}
 
   sse-client:
-    image: uowcpc/asclepios-client:dev_sgx
-          #build: ../Asclepios-Client
+    image: uowcpc/asclepios-client:0.5
     container_name: client
     ports:
       - "80:80"
@@ -119,7 +113,6 @@ services:
     depends_on:
       - sse
       - ta
-      - minio
     environment:
       ALLOWED_HOSTS: ${SSE_CLIENT_ALLOWED_HOSTS}
       DJANGO_DEBUG: ${SSE_CLIENT_DJANGO_DEBUG}

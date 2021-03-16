@@ -102,7 +102,7 @@ services:
       MINIO_EXPIRE_PUT: ${MINIO_EXPIRE_PUT}
 
   sse-client:
-    image: uowcpc/asclepios-client:0.6
+    image: uowcpc/asclepios-client:0.7
     container_name: client
     ports:
       - "80:80"

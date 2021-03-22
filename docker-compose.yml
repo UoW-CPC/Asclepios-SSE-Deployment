@@ -15,7 +15,7 @@ services:
       PGDATA: /var/lib/postgresql/data
 
   ta:
-    image: uowcpc/asclepios-ta:0.4
+    image: uowcpc/asclepios-ta:0.4.1
     container_name: ta
     ports:
       - "8000:8000"
@@ -70,7 +70,7 @@ services:
       PGDATA: /var/lib/postgresql/data
 
   sse:
-    image: uowcpc/asclepios-server:0.4
+    image: uowcpc/asclepios-server:0.4.1
     container_name: sse
     ports:
       - "8080:8080"
@@ -102,7 +102,7 @@ services:
       MINIO_EXPIRE_PUT: ${MINIO_EXPIRE_PUT}
 
   sse-client:
-    image: uowcpc/asclepios-client:0.7
+    image: uowcpc/asclepios-client:0.7.1
     container_name: client
     ports:
       - "80:80"

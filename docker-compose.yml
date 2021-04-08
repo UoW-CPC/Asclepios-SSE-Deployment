@@ -102,7 +102,7 @@ services:
       MINIO_EXPIRE_PUT: ${MINIO_EXPIRE_PUT}
 
   sse-client:
-    image: uowcpc/asclepios-client:0.7.1
+    image: uowcpc/asclepios-client:0.8
     container_name: client
     ports:
       - "80:80"
@@ -141,6 +141,8 @@ services:
       SGX_ENABLE: ${SSE_CLIENT_SGX_ENABLE}
       CP_ABE_URL: ${SSE_CLIENT_CP_ABE_URL}
       DEBUG: ${SSE_CLIENT_DEBUG}
+      AUTH: ${SSE_CLIENT_AUTH}
+      SMALL_FILE: ${SSE_CLIENT_SMALL_FILE}
 
   minio:
     image: minio/minio
